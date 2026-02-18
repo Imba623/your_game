@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Твоя игра - для троих</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .players { display: flex; gap: 20px; margin-bottom: 20px; }
+        .player { border: 2px solid #ccc; padding: 10px; border-radius: 5px; flex: 1; }
+        .player.active { border-color: #4CAF50; background-color: #e8f5e9; }
+        .score { font-size: 24px; font-weight: bold; }
+        .categories { display: flex; flex-direction: column; gap: 10px; }
+        .category-row { display: flex; gap: 5px; }
+        .category-title { width: 150px; font-weight: bold; }
+        .questions { display: flex; gap: 5px; flex-wrap: wrap; }
+        .question-btn { width: 60px; height: 60px; background-color: #2196F3; color: white; 
+                       border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .question-btn.answered { background-color: #9e9e9e; cursor: not-allowed; }
+        .question-btn:not(.answered):hover { background-color: #1976D2; }
+        .game-controls { margin-top: 20px; padding: 20px; background-color: #f5f5f5; border-radius: 5px; }
+        .question-display { font-size: 20px; margin: 10px 0; padding: 10px; background-color: #fff; border-radius: 5px; }
+        .answer-input { padding: 10px; font-size: 16px; margin-right: 10px; width: 300px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #4CAF50; 
+                color: white; border: none; border-radius: 5px; }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        .winner { background-color: #ffd700; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🎮 Твоя игра - для троих игроков</h1>
+    
+    <div class="players" id="players">
+        <!-- Игроки будут добавлены через JavaScript -->
+    </div>
+
+    <div class="categories" id="categories">
+        <!-- Категории будут добавлены через JavaScript -->
+    </div>
+
+    <div class="game-controls" id="gameControls">
+        <h3>Управление игрой</h3>
+        <div id="currentQuestion" class="question-display">
+            Выберите вопрос, чтобы начать игру
+        </div>
+        <div>
+            <input type="text" id="answerInput" class="answer-input" placeholder="Введите ответ игрока" disabled>
+            <button id="checkAnswerBtn" disabled>Проверить ответ</button>
+            <button id="nextTurnBtn">Следующий ход</button>
+            <button id="resetGameBtn">Новая игра</button>
+        </div>
+    </div>
+
+    <script>
+        // Игроки
+        let players = [
+            { id: 1, name: 'Игрок 1', score: 0, isActive: true },
+            { id: 2, name: 'Игрок 2', score: 0, isActive: false },
+            { id: 3, name: 'Игрок 3', score: 0, isActive: false }
+        ];
+
+        // Вопросы по категориям
+        const questionsData = {
+            'Разное': [
+                { value: 100, question: 'Сколько месяцев в году имеют 28 дней?', answer: '12' },
+                { value: 200, question: 'Что можно приготовить, но нельзя съесть?', answer: 'уроки' },
+                { value: 300, question: 'Что становится больше, если его поставить вверх ногами?', answer: 'число 6' },
+                { value: 400, question: 'Что принадлежит вам, но другие пользуются им чаще?', answer: 'имя' },
+                { value: 500, question: 'Какой рукой лучше размешивать чай?', answer: 'ложкой' }
+            ],
+            'География': [
+                { value: 100, question: 'Самая длинная река в мире?', answer: 'Нил' },
+                { value: 200, question: 'Самый маленький материк?', answer: 'Австралия' },
+                { value: 300, question: 'Столица Франции?', answer: 'Париж' },
+                { value: 400, question: 'Самое глубокое озеро в мире?', answer: 'Байкал' },
+                { value: 500, question: 'Самая высокая гора в мире?', answer: 'Эверест' }
+            ],
+            'Наука': [
+                { value: 100, question: 'Сколько планет в солнечной системе?', answer: '8' },
+                { value: 200, question: 'Какая наука изучает звезды?', answer: 'астрономия' },
+                { value: 300, question: 'Из чего состоит вода?', answer: 'водород и кислород' },
+                { value: 400, question: 'Самый твердый минерал?', answer: 'алмаз' },
+                { value: 500, question: 'Кто изобрел телефон?', answer: 'Белл' }
+            ]
+        };
+
+        let answeredQuestions = new Set(); // Отвеченные вопросы
+        let currentQuestion = null; // Текущий выбранный вопрос
+        let gameOver = false;
+
+        // Функция обновления отображения игроков
+        function updatePlayersDisplay() {
+            const playersDiv = document.getElementById('players');
+            playersDiv.innerHTML = '';
+            
+            players.forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = `player ${player.isActive ? 'active' : ''}`;
+                playerDiv.innerHTML = `
+                    <h3>${player.name}</h3>
+                    <div class="score">💰 ${player.score}</div>
+                `;
+                playersDiv.appendChild(playerDiv);
+            });
+        }
+
+        // Функция обновления отображения вопросов
+        function updateQuestionsDisplay() {
+            const categoriesDiv = document.getElementById('categories');
+            categoriesDiv.innerHTML = '';
+
+            Object.entries(questionsData).forEach(([category, questions]) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'category-row';
+                
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'category-title';
+                titleDiv.textContent = category;
+                rowDiv.appendChild(titleDiv);
+
+                const questionsDiv = document.createElement('div');
+                questionsDiv.className = 'questions';
+
+                questions.forEach(q => {
+                    const btn = document.createElement('button');
+                    btn.className = `question-btn ${answeredQuestions.has(q.question) ? 'answered' : ''}`;
+                    btn.textContent = q.value;
+                    btn.onclick = () => selectQuestion(category, q);
+                    btn.disabled = answeredQuestions.has(q.question) || gameOver;
+                    questionsDiv.appendChild(btn);
+                });
+
+                rowDiv.appendChild(questionsDiv);
+                categoriesDiv.appendChild(rowDiv);
+            });
+        }
+
+        // Функция выбора вопроса
+        function selectQuestion(category, question) {
+            if (answeredQuestions.has(question.question) || gameOver) return;
+            
+            currentQuestion = { category, ...question };
+            
+            document.getElementById('currentQuestion').innerHTML = 
+                `<strong>${category} - ${question.value}:</strong> ${question.question}`;
+            
+            // Активируем поле для ответа
+            document.getElementById('answerInput').disabled = false;
+            document.getElementById('checkAnswerBtn').disabled = false;
+            document.getElementById('answerInput').focus();
+        }
+
+        // Функция проверки ответа
+        function checkAnswer() {
+            if (!currentQuestion || gameOver) return;
+
+            const answerInput = document.getElementById('answerInput');
+            const userAnswer = answerInput.value.trim().toLowerCase();
+            
+            if (!userAnswer) {
+                alert('Введите ответ!');
+                return;
+            }
+
+            const correctAnswer = currentQuestion.answer.toLowerCase();
+            const isCorrect = userAnswer === correctAnswer;
+            
+            // Находим активного игрока
+            const activePlayerIndex = players.findIndex(p => p.isActive);
+            
+            if (isCorrect) {
+                players[activePlayerIndex].score += currentQuestion.value;
+                alert(`✅ Правильно! +${currentQuestion.value} очков`);
+            } else {
+                alert(`❌ Неправильно! Правильный ответ: ${currentQuestion.answer}`);
+            }
+
+            // Помечаем вопрос как отвеченный
+            answeredQuestions.add(currentQuestion.question);
+            
+            // Очищаем поле ввода
+            answerInput.value = '';
+            answerInput.disabled = true;
+            document.getElementById('checkAnswerBtn').disabled = true;
+            
+            // Обновляем отображение
+            updatePlayersDisplay();
+            updateQuestionsDisplay();
+            
+            // Проверяем, не закончилась ли игра
+            checkGameOver();
+            
+            // Переходим к следующему игроку
+            nextTurn();
+            
+            currentQuestion = null;
+            document.getElementById('currentQuestion').innerHTML = 'Выберите следующий вопрос';
+        }
+
+        // Функция перехода к следующему игроку
+        function nextTurn() {
+            const currentIndex = players.findIndex(p => p.isActive);
+            players[currentIndex].isActive = false;
+            
+            const nextIndex = (currentIndex + 1) % players.length;
+            players[nextIndex].isActive = true;
+            
+            updatePlayersDisplay();
+        }
+
+        // Функция проверки окончания игры
+        function checkGameOver() {
+            const totalQuestions = Object.values(questionsData)
+                .reduce((sum, questions) => sum + questions.length, 0);
+            
+            if (answeredQuestions.size === totalQuestions) {
+                gameOver = true;
+                
+                // Находим победителя
+                const winner = players.reduce((max, player) => 
+                    player.score > max.score ? player : max
+                );
+                
+                alert(`🎉 Игра окончена! Победитель: ${winner.name} с ${winner.score} очками!`);
+                
+                // Подсвечиваем победителя
+                players.forEach(p => p.isActive = false);
+                updatePlayersDisplay();
+            }
+        }
+
+        // Функция сброса игры
+        function resetGame() {
+            players = [
+                { id: 1, name: 'Игрок 1', score: 0, isActive: true },
+                { id: 2, name: 'Игрок 2', score: 0, isActive: false },
+                { id: 3, name: 'Игрок 3', score: 0, isActive: false }
+            ];
+            
+            answeredQuestions.clear();
+            currentQuestion = null;
+            gameOver = false;
+            
+            document.getElementById('answerInput').value = '';
+            document.getElementById('answerInput').disabled = true;
+            document.getElementById('checkAnswerBtn').disabled = true;
+            document.getElementById('currentQuestion').innerHTML = 'Выберите вопрос, чтобы начать игру';
+            
+            updatePlayersDisplay();
+            updateQuestionsDisplay();
+        }
+
+        // Инициализация обработчиков событий
+        document.getElementById('checkAnswerBtn').onclick = checkAnswer;
+        document.getElementById('nextTurnBtn').onclick = nextTurn;
+        document.getElementById('resetGameBtn').onclick = resetGame;
+
+        // Начальное отображение
+        updatePlayersDisplay();
+        updateQuestionsDisplay();
+    </script>
+</body>
+</html>
